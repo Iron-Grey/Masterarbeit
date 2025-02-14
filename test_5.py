@@ -1,23 +1,3 @@
-# test_5在test_4上的改进
-#   1. 重新加上Early stopping，让训练在最优点提前停止，防止过拟合，避免训练损失下降但验证损失上升
-#   2. 异常阈值调整，由mean + 3 * std改为95% 分位数 (np.percentile) 设定更稳定的阈值
-#   3. 使用 t-SNE 进行降维可视化
-
-# 可以用来训练的版本3.0
-# 训练结果分析：
-#   1. 训练损失 平稳下降，最终接近 0.79，收敛情况良好。
-#      验证损失 在 50 轮左右趋于稳定，没有出现大幅上升，表明 没有明显的过拟合。
-#      EarlyStopping（patience=10）有效避免了过拟合，并且 batch_size=32 也表现稳定
-#   2. 误差主要集中在 0.39 - 0.44 之间，但仍然有一些高峰值。
-#      异常阈值 ~0.44（95% 分位数）更稳健，比 mean + 3*std 方法更准确。
-#      只有少量数据点超出了异常阈值（红色虚线），说明异常检测不是过度敏感的。
-#   3. K-Means 聚类（t-SNE 降维）
-#      数据分布比之前的 PCA 2D 效果更清晰，不同簇的分布更加分离。
-#      可以看到明显的 三大类簇
-
-# 改进方案：test_6
-#   1. 添加一个混淆矩阵更好的观察聚类
-
 # test_5 Improvements on test_4
 # 1. Re-added Early stopping to allow training to stop early at the optimal point to prevent overfitting and avoid training loss going down but validation loss going up.
 # 2. Adjust the anomaly threshold from mean + 3 * std to 95% quantile (np.percentile) to set a more stable threshold.
@@ -72,10 +52,10 @@ def load_denoised_data(file_paths):
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -105,14 +85,13 @@ autoencoder = Model(input_layer, decoded)
 autoencoder.compile(optimizer='adam', loss='mse')
 
 ##########################################
-# 改进1
+# Improvement 1
 ##########################################
 
 # Train Autoencoder
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 history = autoencoder.fit(X, X, epochs=70, batch_size=32, validation_split=0.1, verbose=1, callbacks=[early_stopping])
 
-# 绘制训练和验证损失曲线，评估自编码器训练效果
 plt.figure(figsize=(10, 5))
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -123,7 +102,7 @@ plt.legend()
 plt.show()
 
 ##################################
-# 改进2
+# Improvement 2
 ##################################
 
 # Compute reconstruction errors
@@ -145,11 +124,11 @@ plt.legend()
 plt.show()
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
 ################################################
-# 改进3
+# Improvement 3
 ################################################
 
 # Evaluate best K value using silhouette score
@@ -173,8 +152,8 @@ silhouette = silhouette_score(X_features, labels)
 db_score = davies_bouldin_score(X_features, labels)
 ch_score = calinski_harabasz_score(X_features, labels)
 print(f"Silhouette Score: {silhouette:.4f}")
-print(f"Davies-Bouldin Index: {db_score:.4f}  (越小越好)")
-print(f"Calinski-Harabasz Index: {ch_score:.4f}  (越大越好)")
+print(f"Davies-Bouldin Index: {db_score:.4f}")
+print(f"Calinski-Harabasz Index: {ch_score:.4f}")
 
 # Use t-SNE for visualization
 X_tsne = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_features)

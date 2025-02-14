@@ -1,13 +1,3 @@
-# test_7在test_6上的改进
-#   1. 训练早停的 patience=10 可能太短，尝试 patience=15
-#   2. 在 encoded 层增加 Dense 层，使得编码更紧凑
-#   3. 尝试按材料类别单独计算异常阈值
-#   4. 聚类的图只显示了3类，我们总共有4种材料，说明有两种材料高度重合的可能
-#      尝试将tsne降维改为降到3维或者使用DBSCAN作为替代
-#   5. 由于 K-Means 没有监督信息，所以它不会自动告诉你哪个簇对应哪个材料，需要确定每个聚类类别（cluster label）对应的实际材料类别（钢、铝、黄铜等）
-#   6. 在通过了最后一轮测试后加上保存模型的代码，让模型可以直接投入到测试
-
-
 # test_7 improvements on test_6
 # 1. patience=10 may be too short for training early stops, try patience=15
 # 2. add Dense layer to encoded layer to make encoding more compact
@@ -55,10 +45,10 @@ def load_denoised_data(file_paths):
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -107,7 +97,7 @@ X_pred = autoencoder.predict(X)
 reconstruction_error = np.mean(np.abs(X - X_pred), axis=(1, 2))
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 true_labels = feature_data.iloc[:, 0].values  # Assuming first column is material labels
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
@@ -153,10 +143,10 @@ new_labels = np.zeros_like(cluster_labels)
 
 for cluster_id in range(4):
     mask = (cluster_labels == cluster_id)
-    if np.any(mask):  # 确保该簇中有样本
+    if np.any(mask):  
         most_common_material = mode(true_labels_encoded[mask])[0][0]
         cluster_to_material[cluster_id] = most_common_material
-        new_labels[mask] = most_common_material  # 重新映射聚类标签
+        new_labels[mask] = most_common_material  
 
 # Print cluster mappings
 print("Cluster to Material Mapping:")

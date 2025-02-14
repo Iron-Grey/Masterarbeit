@@ -4,7 +4,7 @@ from scipy.signal import welch, stft, istft, butter, filtfilt
 from scipy.stats import skew, kurtosis
 import matplotlib
 
-matplotlib.use("TkAgg")  # 解决 PyCharm 绘图问题
+matplotlib.use("TkAgg")  
 import matplotlib.pyplot as plt
 
 # ==========================
@@ -12,11 +12,11 @@ import matplotlib.pyplot as plt
 # ==========================
 
 file_paths = {
-    "default": "C:/Users/c1257/Desktop/data/default.csv",
-    "steel": "C:/Users/c1257/Desktop/data/steel.csv",
-    "roasted_steel": "C:/Users/c1257/Desktop/data/roasted_steel.csv",
-    "aluminum": "C:/Users/c1257/Desktop/data/aluminum.csv",
-    "brass": "C:/Users/c1257/Desktop/data/brass.csv",
+    "default": "data/default.csv",
+    "steel": "data/steel.csv",
+    "roasted_steel": "data/roasted_steel.csv",
+    "aluminum": "data/aluminum.csv",
+    "brass": "data/brass.csv",
 }
 
 # read all the data
@@ -43,7 +43,7 @@ default_signal = filtfilt(b, a, default_signal)  # Bandpass Filtering of backgro
 
 # Compute STFT of background noise
 f_noise, t_noise, Zxx_noise = stft(default_signal, fs=fs, nperseg=4096)
-# 计算每个频率的噪声功率谱（对所有时刻取均值）
+
 noise_psd = np.mean(np.abs(Zxx_noise) ** 2, axis=1)
 
 
@@ -53,8 +53,8 @@ noise_psd = np.mean(np.abs(Zxx_noise) ** 2, axis=1)
 
 def compute_psd(signal, fs=50000):
     frequencies, psd = welch(signal, fs=fs, nperseg=4096)
-    psd = np.maximum(psd, 1e-10)  # 避免对数计算错误
-    psd_log = 10 * np.log10(psd)  # 归一化
+    psd = np.maximum(psd, 1e-10)  
+    psd_log = 10 * np.log10(psd)  
     return frequencies, psd_log
 
 
@@ -111,22 +111,16 @@ for material, df in dataframes.items():
     signal = (signal - np.mean(signal)) / np.std(signal)  # Standardization
     signal = filtfilt(b, a, signal)  # Bandpass Filtering
 
-    # STFT 与 Wiener 滤波降噪
+    # STFT & Wiener 
     f_signal, t_signal, Zxx_signal = stft(signal, fs=fs, nperseg=4096)
-    # 计算信号的时频功率谱（幅值平方）
     signal_psd = np.abs(Zxx_signal) ** 2
 
-    # 估计 Wiener 滤波器系数：
-    # 对每个频率和时间点，SNR = signal_psd / noise_psd，其中 noise_psd 是按频率估计的噪声功率
-    # 为使维度匹配，将 noise_psd 扩展为二维数组（每列相同）
     noise_psd_2d = noise_psd[:, np.newaxis]
     snr = signal_psd / (noise_psd_2d + 1e-10)
-    H_wiener = snr / (snr + 1)  # Wiener 滤波器传递函数
+    H_wiener = snr / (snr + 1)  
 
-    # 应用 Wiener 滤波器
     Zxx_denoised = H_wiener * Zxx_signal
 
-    # 通过 ISTFT 得到降噪后的时域信号
     _, denoised_signal = istft(Zxx_denoised, fs=fs)
 
     # =====================================
@@ -141,8 +135,6 @@ for material, df in dataframes.items():
     plt.xlabel("Sample Index")
     plt.ylabel("Amplitude")
     plt.legend()
-    plt.savefig(
-        f"C:/Users/c1257/Desktop/data_diagram/processed_data_comparison/3rd_trail_Wiener_Filter_4096/{material}_time_comparison_wiener.png")
     plt.show()
 
     # Compute and visualize STFT
@@ -153,8 +145,6 @@ for material, df in dataframes.items():
     plt.ylabel("Frequency (Hz)")
     plt.colorbar(label="Magnitude")
     plt.ylim(0, 20000)
-    plt.savefig(
-        f"C:/Users/c1257/Desktop/data_diagram/processed_data_comparison/3rd_trail_Wiener_Filter_4096/{material}_original_stft.png")
     plt.show()
 
     plt.figure(figsize=(10, 5))
@@ -164,8 +154,6 @@ for material, df in dataframes.items():
     plt.ylabel("Frequency (Hz)")
     plt.colorbar(label="Magnitude")
     plt.ylim(0, 20000)
-    plt.savefig(
-        f"C:/Users/c1257/Desktop/data_diagram/processed_data_comparison/3rd_trail_Wiener_Filter_4096/{material}_denoised_stft_wiener.png")
     plt.show()
 
     # Compute and visualize PSD before and after denoising
@@ -179,8 +167,6 @@ for material, df in dataframes.items():
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Power Spectral Density (dB)")
     plt.legend()
-    plt.savefig(
-        f"C:/Users/c1257/Desktop/data_diagram/processed_data_comparison/3rd_trail_Wiener_Filter_4096/{material}_psd_comparison_wiener.png")
     plt.show()
 
     # Segment signal
@@ -193,7 +179,7 @@ for material, df in dataframes.items():
 
     # Save segmented denoised signals
     df_denoised = pd.DataFrame(segmented_signals)
-    df_denoised.to_csv(f"C:/Users/c1257/Desktop/processed_data/denoised_{material}.csv", index=False)
+    df_denoised.to_csv(f"processed_data/denoised_{material}.csv", index=False)
 
     # Compute statistics for visualization
     stats_summary[material] = {
@@ -210,16 +196,14 @@ for material, df in dataframes.items():
 df_features = pd.DataFrame(feature_list,
                            columns=["Material", "Mean", "Std Dev", "Max", "Min", "RMS", "Skewness", "Kurtosis",
                                     "Peak Freq", "Spectral Entropy"])
-df_features.to_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv", index=False)
+df_features.to_csv("processed_data/feature_data.csv", index=False)
 
 # Convert statistics summary to DataFrame and visualize
 stats_df = pd.DataFrame(stats_summary).T
 print(stats_df)
-stats_df.to_csv("C:/Users/c1257/Desktop/processed_data/signal_statistics.csv")
+stats_df.to_csv("processed_data/signal_statistics.csv")
 
 # Plot statistical summary
 stats_df.plot(kind='bar', figsize=(12, 6), title="Statistical Features of Denoised Signals")
 plt.ylabel("Value")
-plt.savefig(
-    "C:/Users/c1257/Desktop/data_diagram/processed_data_comparison/3rd_trail_Wiener_Filter_4096/statistical_features_wiener.png")
 plt.show()

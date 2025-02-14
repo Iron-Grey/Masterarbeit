@@ -1,23 +1,3 @@
-# test_4在test_3的基础上的改进：
-#   1. 重新调整batch size到32
-#   2. 去除Early stopping，epoch由50增加到70
-
-# 可以用来训练的版本2.0
-# 训练结果分析：
-#   1. 训练损失 下降得很顺利，从 0.84 下降到 0.79，说明模型仍在学习并收敛。
-#   2. 验证损失 下降后在 50-60 轮附近开始波动，甚至略有上升，这可能意味着：
-#               过拟合（模型对训练数据学得太好，但泛化能力下降）。
-#   3. 误差分布在 0.39-0.44 之间，大部分数据点的误差集中在 0.40-0.42。
-#      设定的 异常阈值在 ~0.45，比最高误差稍大，应该不会误判正常点。
-#   4. 颜色代表 K-Means 分配的 4 个簇。
-#      其中 0 号（紫色）簇占比远大于其他簇，说明簇间可能不均衡。
-#      边界不太清晰，部分点可能被错误归类。
-
-# 改进方案：test_5
-#   1. 重新加上Early stopping，让训练在最优点提前停止，防止过拟合，避免训练损失下降但验证损失上升
-#   2. 异常阈值调整，由mean + 3 * std改为95% 分位数 (np.percentile) 设定更稳定的阈值
-#   3. 使用 t-SNE 进行降维可视化
-
 # test_4 Improvements on test_3:
 # 1. Resize batch size to 32.
 # 2. Remove Early stopping and increase epoch from 50 to 70.
@@ -67,10 +47,10 @@ def load_denoised_data(file_paths):
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -100,14 +80,13 @@ autoencoder = Model(input_layer, decoded)
 autoencoder.compile(optimizer='adam', loss='mse')
 
 ##########################################
-# 改进1&2
+# Improvement 1&2
 ##########################################
 
 # Train Autoencoder
 # early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 history = autoencoder.fit(X, X, epochs=70, batch_size=32, validation_split=0.1, verbose=1)
 
-# 绘制训练和验证损失曲线，评估自编码器训练效果
 plt.figure(figsize=(10, 5))
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -136,7 +115,7 @@ plt.legend()
 plt.show()
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
 # Perform K-Means clustering
@@ -148,8 +127,8 @@ silhouette = silhouette_score(X_features, labels)
 db_score = davies_bouldin_score(X_features, labels)
 ch_score = calinski_harabasz_score(X_features, labels)
 print(f"Silhouette Score: {silhouette:.4f}")
-print(f"Davies-Bouldin Index: {db_score:.4f}  (越小越好)")
-print(f"Calinski-Harabasz Index: {ch_score:.4f}  (越大越好)")
+print(f"Davies-Bouldin Index: {db_score:.4f}")
+print(f"Calinski-Harabasz Index: {ch_score:.4f}")
 
 # Plot clustering results
 plt.figure(figsize=(8, 6))

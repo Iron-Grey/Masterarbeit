@@ -1,9 +1,3 @@
-# 这边的问题是GPU内存不足，无法分配tensor形状[10000, 40000]的张量
-# 改进：test_2
-#    1. 降低Batch size
-#    2. 用memory_growth限制GPU内存增长,默认情况下，TensorFlow 会在 GPU 上 一次性占满所有可用显存，即使模型不需要那么多内存。
-
-
 # The problem on this side is that there is not enough GPU memory to allocate the tensor shape [10000, 40000] tensor
 
 
@@ -29,10 +23,10 @@ def load_denoised_data(file_paths):
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -60,7 +54,7 @@ autoencoder.compile(optimizer='adam', loss='mse')
 # Train Autoencoder
 history = autoencoder.fit(X, X, epochs=50, batch_size=32, validation_split=0.1, verbose=1)
 
-# 绘制训练和验证损失曲线，评估自编码器训练效果
+# Training Loss & Vali Loss
 plt.figure(figsize=(10, 5))
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -89,7 +83,7 @@ plt.legend()
 plt.show()
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
 # Perform K-Means clustering
@@ -101,8 +95,8 @@ silhouette = silhouette_score(X_features, labels)
 db_score = davies_bouldin_score(X_features, labels)
 ch_score = calinski_harabasz_score(X_features, labels)
 print(f"Silhouette Score: {silhouette:.4f}")
-print(f"Davies-Bouldin Index: {db_score:.4f}  (越小越好)")
-print(f"Calinski-Harabasz Index: {ch_score:.4f}  (越大越好)")
+print(f"Davies-Bouldin Index: {db_score:.4f}  
+print(f"Calinski-Harabasz Index: {ch_score:.4f}  
 
 
 # Plot clustering results

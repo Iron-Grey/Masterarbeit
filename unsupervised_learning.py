@@ -1,10 +1,3 @@
-# 改进方案：test_8
-#   1. 增加LSTM Autoencoder的网络层数
-#   2. 在关键层之间添加Dropout来防止过拟合
-#   3. 尝试使用ReLu来防止梯度消失
-#   4. 尝试不同的 perplexity 参数（例如 30、70 等）观察可视化效果
-#   6. 在通过了最后一轮测试后加上保存模型的代码，让模型可以直接投入到测试
-
 # Improvement program: test_8
 # 1. Increase the number of network layers in LSTM Autoencoder
 # 2. add Dropout between key layers to prevent overfitting
@@ -44,16 +37,16 @@ def load_denoised_data(file_paths):
     data = []
     for file in file_paths:
         df = pd.read_csv(file)
-        print(f"Loaded {file}, shape: {df.shape}")  # 检查数据形状
+        print(f"Loaded {file}, shape: {df.shape}")  
         data.append(df.values)
     return np.concatenate(data, axis=0)
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -75,17 +68,13 @@ X = np.array(X)
 # Define LSTM Autoencoder
 latent_dim = 16
 input_layer = Input(shape=(sequence_length, X.shape[2]))
-# 第一层 LSTM，返回整个序列以供后续堆叠
 encoded = LSTM(latent_dim, return_sequences=True, activation="tanh")(input_layer)
 encoded = Dropout(0.2)(encoded)
-# 第二层 LSTM，提取时序特征（只返回最后一个输出）
 encoded = LSTM(latent_dim, return_sequences=False, activation="tanh")(encoded)
 encoded = Dropout(0.2)(encoded)
-# Dense 层采用 LeakyReLU 激活，缓解传统 ReLU 的“死亡”问题
 encoded = Dense(latent_dim // 2)(encoded)
 encoded = LeakyReLU(alpha=0.1)(encoded)
 decoded = RepeatVector(sequence_length)(encoded)
-# 解码部分使用与编码相似的结构
 decoded = LSTM(latent_dim, return_sequences=True, activation="tanh")(decoded)
 decoded = Dropout(0.2)(decoded)
 decoded = LSTM(X.shape[2], return_sequences=True, activation="tanh")(decoded)
@@ -112,7 +101,7 @@ X_pred = autoencoder.predict(X)
 reconstruction_error = np.mean(np.abs(X - X_pred), axis=(1, 2))
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 true_labels = feature_data.iloc[:, 0].values  # Assuming first column is material labels
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
@@ -158,10 +147,10 @@ new_labels = np.zeros_like(cluster_labels)
 
 for cluster_id in range(4):
     mask = (cluster_labels == cluster_id)
-    if np.any(mask):  # 确保该簇中有样本
+    if np.any(mask):  
         most_common_material = mode(true_labels_encoded[mask])[0][0]
         cluster_to_material[cluster_id] = most_common_material
-        new_labels[mask] = most_common_material  # 重新映射聚类标签
+        new_labels[mask] = most_common_material  
 
 # Print cluster mappings
 print("Cluster to Material Mapping:")

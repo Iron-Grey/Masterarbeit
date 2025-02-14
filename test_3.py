@@ -1,25 +1,3 @@
-# test_3相对于tes_2的改进
-#    1. 通过PCA减少维度到396，time_series_data的形状是(396, 10000)
-#       更改 PCA 维度 (n_components) 主要影响 数据的压缩程度、信息保留率，以及模型的计算性能
-#       样本数(n_samples)是396，特征数(n_features)是10000，所以上限396
-#    2. 把LSTM层的activation function由relu改为tanh，这样Tensorflow会自动使用CuDNN进行加速
-#    3. 添加一个Earlystoping，避免资源浪费，这样如果模型在几个epochs内没有提升，就自动停止训练
-#       monitor='val_loss'：监测验证损失
-#       patience=10：如果 10 个 epochs 内 val_loss 没有下降，就停止训练
-#       restore_best_weights=True：防止过拟合，回到最优权重
-
-# 这个版本就是初步可以用来训练的版本
-# 训练结果分析：
-#   1. 训练损失 持续下降，验证损失 下降后趋于稳定，说明模型没有过拟合
-#   2. 但验证损失比训练损失更低，这通常表示：
-#           数据噪声较大，可能模型在某些输入上比训练数据表现得更好。
-#           可能 EarlyStopping 触发得稍早，模型未完全收敛。
-#   3. batch size过小
-
-# 改进方案：test_4
-#   1. 重新调整batch size到32
-#   2. 去除Early stopping，epoch由50增加到70
-
 # Solution: test_3
 # 1. Reduce dimension to 396 by PCA, time_series_data has shape (396, 10000)
 # Change PCA dimension (n_components) mainly affects the compression level of data, information retention rate, and the computational performance of the model
@@ -72,10 +50,10 @@ def load_denoised_data(file_paths):
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -84,7 +62,7 @@ scaler = MinMaxScaler()
 time_series_data = scaler.fit_transform(time_series_data)
 
 ##########################################
-# 改进1
+# Improvement 1
 ##########################################
 
 # Apply PCA to reduce feature dimensions from 10000 to 500
@@ -99,7 +77,7 @@ for i in range(len(time_series_data) - sequence_length):
 X = np.array(X)
 
 ###########################################
-# 改进2
+# Improvement 2
 ###########################################
 
 # Define LSTM Autoencoder
@@ -113,14 +91,13 @@ autoencoder = Model(input_layer, decoded)
 autoencoder.compile(optimizer='adam', loss='mse')
 
 ##########################################
-# 改进3
+# Improvement 3
 ##########################################
 
 # Train Autoencoder
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 history = autoencoder.fit(X, X, epochs=50, batch_size=8, validation_split=0.1, verbose=1, callbacks=[early_stopping])
 
-# 绘制训练和验证损失曲线，评估自编码器训练效果
 plt.figure(figsize=(10, 5))
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -149,7 +126,7 @@ plt.legend()
 plt.show()
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
 # Perform K-Means clustering
@@ -161,8 +138,8 @@ silhouette = silhouette_score(X_features, labels)
 db_score = davies_bouldin_score(X_features, labels)
 ch_score = calinski_harabasz_score(X_features, labels)
 print(f"Silhouette Score: {silhouette:.4f}")
-print(f"Davies-Bouldin Index: {db_score:.4f}  (越小越好)")
-print(f"Calinski-Harabasz Index: {ch_score:.4f}  (越大越好)")
+print(f"Davies-Bouldin Index: {db_score:.4f} ")
+print(f"Calinski-Harabasz Index: {ch_score:.4f} ")
 
 
 # Plot clustering results

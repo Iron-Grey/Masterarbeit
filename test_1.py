@@ -95,8 +95,8 @@ silhouette = silhouette_score(X_features, labels)
 db_score = davies_bouldin_score(X_features, labels)
 ch_score = calinski_harabasz_score(X_features, labels)
 print(f"Silhouette Score: {silhouette:.4f}")
-print(f"Davies-Bouldin Index: {db_score:.4f}  
-print(f"Calinski-Harabasz Index: {ch_score:.4f}  
+print(f"Davies-Bouldin Index: {db_score:.4f} ) 
+print(f"Calinski-Harabasz Index: {ch_score:.4f} ) 
 
 
 # Plot clustering results

@@ -1,15 +1,3 @@
-# test_6在tes_5上的改进：
-#   1. 添加一个混淆矩阵更好的观察聚类
-
-# 改进方案：test_7
-#   1. 训练早停的 patience=10 可能太短，尝试 patience=15
-#   2. 在 encoded 层增加 Dense 层，使得编码更紧凑
-#   3. 尝试按材料类别单独计算异常阈值
-#   4. 聚类的图只显示了3类，我们总共有4种材料，说明有两种材料高度重合的可能
-#      尝试将tsne降维改为降到3维或者使用DBSCAN作为替代
-#   5. 由于 K-Means 没有监督信息，所以它不会自动告诉你哪个簇对应哪个材料，需要确定每个聚类类别（cluster label）对应的实际材料类别（钢、铝、黄铜等）
-#   6. 在通过了最后一轮测试后加上保存模型的代码，让模型可以直接投入到测试
-
 # test_6 improvements on tes_5:
 # 1. add a confusion matrix to better observe clustering
 
@@ -49,10 +37,10 @@ def load_denoised_data(file_paths):
 
 # Define file paths
 denoised_files = [
-    "C:/Users/c1257/Desktop/processed_data/denoised_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_roasted_steel.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_aluminum.csv",
-    "C:/Users/c1257/Desktop/processed_data/denoised_brass.csv"
+    "processed_data/denoised_steel.csv",
+    "processed_data/denoised_roasted_steel.csv",
+    "processed_data/denoised_aluminum.csv",
+    "processed_data/denoised_brass.csv"
 ]
 
 # Load and normalize data
@@ -85,7 +73,6 @@ autoencoder.compile(optimizer='adam', loss='mse')
 early_stopping = EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True)
 history = autoencoder.fit(X, X, epochs=100, batch_size=64, validation_split=0.1, verbose=1, callbacks=[early_stopping])
 
-# 绘制训练和验证损失曲线，评估自编码器训练效果
 plt.figure(figsize=(10, 5))
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -114,7 +101,7 @@ plt.legend()
 plt.show()
 
 # Load feature data for clustering
-feature_data = pd.read_csv("C:/Users/c1257/Desktop/processed_data/feature_data.csv")
+feature_data = pd.read_csv("processed_data/feature_data.csv")
 true_labels = feature_data.iloc[:, 0].values  # Assuming first column is material labels
 X_features = feature_data.iloc[:, 1:].values  # Exclude material labels
 
@@ -140,8 +127,8 @@ for cluster, material in cluster_material_mapping.items():
 
 # Compute confusion matrix
 conf_matrix = confusion_matrix(true_labels_encoded, labels)
-class_labels = label_encoder.classes_  # 真实材料类别
-cluster_labels = sorted(np.unique(labels))  # K-Means 预测类别
+class_labels = label_encoder.classes_  
+cluster_labels = sorted(np.unique(labels))  # K-Means 
 
 plt.figure(figsize=(6, 5))
 sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues',

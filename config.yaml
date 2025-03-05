@@ -1,0 +1,29 @@
+data:
+  sequence_length: 50
+  file_paths:
+    - "C:/Users/c1257/Desktop/processed_data/processed_data_BWiener/denoised_steel.csv"
+    - "C:/Users/c1257/Desktop/processed_data/processed_data_BWiener/denoised_roasted_steel.csv"
+    - "C:/Users/c1257/Desktop/processed_data/processed_data_BWiener/denoised_aluminum.csv"
+    - "C:/Users/c1257/Desktop/processed_data/processed_data_BWiener/denoised_brass.csv"
+  feature_data_path: "C:/Users/c1257/Desktop/processed_data/processed_data_BWiener/feature_data.csv"
+  pca_components: 395
+
+model:
+  latent_dim: 16
+  lstm_units:
+    encoder:
+      first: 64
+      second: 32
+    decoder:
+      first: 32
+      second: 64
+  dropout_rate: 0.2
+
+training:
+  epochs: 100
+  batch_size: 64
+  validation_split: 0.1
+  patience: 15
+
+
+

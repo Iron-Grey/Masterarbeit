@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import seaborn as sns
 import yaml
+from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
+from functools import partial
 from mpl_toolkits.mplot3d import Axes3D
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, LSTM, RepeatVector, Dense, Dropout, LeakyReLU
@@ -33,18 +35,12 @@ sequence_length = config["data"]["sequence_length"]
 file_paths = config["data"]["file_paths"]
 feature_data_path = config["data"]["feature_data_path"]
 pca_components = config["data"]["pca_components"]
-latent_dim = config["model"]["latent_dim"]
-dropout_rate = config["model"]["dropout_rate"]
-lstm_units_encoder_first = config["model"]["lstm_units"]["encoder"]["first"]
-lstm_units_encoder_second = config["model"]["lstm_units"]["encoder"]["second"]
-lstm_units_decoder_first = config["model"]["lstm_units"]["decoder"]["first"]
-lstm_units_decoder_second = config["model"]["lstm_units"]["decoder"]["second"]
-epochs = config["training"]["epochs"]
-batch_size = config["training"]["batch_size"]
 validation_split = config["training"]["validation_split"]
 patience = config["training"]["patience"]
 
-# -------------------- Data Loading and Preprocessing --------------------
+
+# -------------------- Helper Functions --------------------
+# Function to load data
 def load_denoised_data(file_paths):
     data = []
     for file in file_paths:
@@ -54,7 +50,75 @@ def load_denoised_data(file_paths):
     return np.concatenate(data, axis=0)
 
 
-# Load and normalize data
+# Function to create and train the autoencoder model
+def create_and_train_model(params):
+    input_layer = Input(shape=(sequence_length, X.shape[2]))
+
+    # Encoder
+    encoded = LSTM(int(params['lstm_units_encoder_first']), return_sequences=True,
+                   activation="tanh")(input_layer)
+    encoded = Dropout(params['dropout_rate'])(encoded)
+    encoded = LSTM(int(params['lstm_units_encoder_second']), return_sequences=False,
+                   activation="tanh")(encoded)
+    encoded = Dropout(params['dropout_rate'])(encoded)
+    encoded = Dense(int(params['latent_dim']), name='encoder_dense')(encoded)
+    encoded = LeakyReLU(alpha=0.1, name='encoder_output')(encoded)
+
+    # Decoder
+    decoded = RepeatVector(sequence_length)(encoded)
+    decoded = LSTM(int(params['lstm_units_decoder_first']), return_sequences=True,
+                   activation="tanh")(decoded)
+    decoded = Dropout(params['dropout_rate'])(decoded)
+    decoded = LSTM(X.shape[2], return_sequences=True, activation='tanh',
+                   name='decoder_output')(decoded)
+
+    autoencoder = Model(input_layer, decoded)
+    autoencoder.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=params['learning_rate']),
+                        loss='mse')
+
+    early_stopping = EarlyStopping(monitor='val_loss',
+                                   patience=patience,
+                                   restore_best_weights=True,
+                                   min_delta=1e-4)
+
+    history = autoencoder.fit(X, X,
+                              epochs=int(params['epochs']),
+                              batch_size=int(params['batch_size']),
+                              validation_split=validation_split,
+                              verbose=0,
+                              callbacks=[early_stopping])
+
+    # Obtaining the validation set loss as an optimization objective
+    val_loss = min(history.history['val_loss'])
+
+    return {'loss': val_loss, 'status': STATUS_OK, 'model': autoencoder, 'history': history.history}
+
+
+# Define function for hyperparameter optimization
+def objective(params):
+    result = create_and_train_model(params)
+    return result['loss']
+
+
+# Add optimization process visualization
+def plot_optimization_history(trials):
+    loss_values = [trial['result']['loss'] for trial in trials.trials]
+    plt.figure(figsize=(10, 5))
+    plt.plot(loss_values, 'b-', label='Validation Loss')
+    plt.xlabel('Iteration')
+    plt.ylabel('Loss')
+    plt.title('Hyperparameter Optimization History')
+    plt.legend()
+    plt.show()
+
+
+# accuracy calculation
+def calculate_accuracy(true_labels, predicted_labels):
+    return np.mean(true_labels == predicted_labels) * 100
+
+
+# -------------------- Data Loading and Preprocessing --------------------
+# normalize data
 time_series_data = load_denoised_data(file_paths)
 scaler = MinMaxScaler()
 time_series_data = scaler.fit_transform(time_series_data)
@@ -68,41 +132,41 @@ for i in range(len(time_series_data) - sequence_length):
     X.append(time_series_data[i: i + sequence_length])
 X = np.array(X)
 
-# -------------------- Build LSTM Autoencoder --------------------
-input_layer = Input(shape=(sequence_length, X.shape[2]))
-# Encoder
-encoded = LSTM(lstm_units_encoder_first, return_sequences=True, activation="tanh")(input_layer)
-encoded = Dropout(dropout_rate)(encoded)
-encoded = LSTM(lstm_units_encoder_second, return_sequences=False, activation="tanh")(encoded)
-encoded = Dropout(dropout_rate)(encoded)
-encoded = Dense(latent_dim, name='encoder_dense')(encoded)
-encoded = LeakyReLU(alpha=0.1, name='encoder_output')(encoded)
+# -------------------- LSTM Autoencoder --------------------
 
-# Decoder
-decoded = RepeatVector(sequence_length)(encoded)
-decoded = LSTM(lstm_units_decoder_first, return_sequences=True, activation="tanh")(decoded)
-decoded = Dropout(dropout_rate)(decoded)
-decoded = LSTM(X.shape[2], return_sequences=True, activation='tanh', name='decoder_output')(decoded)
+# Define search space for hyperparameter optimization
+space = {
+    'lstm_units_encoder_first': hp.quniform('lstm_units_encoder_first', 32, 256, 32),
+    'lstm_units_encoder_second': hp.quniform('lstm_units_encoder_second', 16, 128, 16),
+    'lstm_units_decoder_first': hp.quniform('lstm_units_decoder_first', 32, 256, 32),
+    'latent_dim': hp.quniform('latent_dim', 8, 64, 8),
+    'dropout_rate': hp.uniform('dropout_rate', 0.1, 0.5),
+    'epochs': hp.quniform('epochs', 50, 500, 50),
+    'batch_size': hp.quniform('batch_size', 16, 128, 16),
+    'learning_rate': hp.loguniform('learning_rate', np.log(1e-4), np.log(1e-2))
+}
 
-autoencoder = Model(input_layer, decoded)
-autoencoder.compile(optimizer='adam', loss='mse')
+# Bayesian optimization
+trials = Trials()
+best = fmin(fn=objective,
+            space=space,
+            algo=tpe.suggest,
+            max_evals=20,  # number of iterations
+            trials=trials)
 
-# Train Autoencoder
-early_stopping = EarlyStopping(monitor='val_loss',
-                               patience=patience,
-                               restore_best_weights=True)
-history = autoencoder.fit(X, X,
-                          epochs=epochs,
-                          batch_size=batch_size,
-                          validation_split=validation_split,
-                          verbose=1,
-                          callbacks=[early_stopping]
-                          )
+print("\nBest hyperparameters found:")
+print(best)
+
+# Visualize the optimization process
+plot_optimization_history(trials)
+# Training the final model with optimal parameters
+best_model_result = create_and_train_model(best)
+autoencoder = best_model_result['model']
 
 # Plot training and validation loss
 plt.figure(figsize=(10, 5))
-plt.plot(history.history['loss'], label='Training Loss')
-plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.plot(best_model_result['history']['loss'], label='Training Loss')
+plt.plot(best_model_result['history']['val_loss'], label='Validation Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss (MSE)')
 plt.title("Training vs. Validation Loss")
@@ -116,7 +180,7 @@ X_pred = autoencoder.predict(X)
 decoded_features = X_pred.mean(axis=1)
 
 # Build encoder model to extract latent features
-encoder = Model(input_layer, encoded)
+encoder = Model(autoencoder.input, autoencoder.get_layer('encoder_output').output)
 encoded_features = encoder.predict(X)
 
 # -------------------- Load Original Clustering Feature Data --------------------
@@ -218,6 +282,16 @@ plt.ylabel("True Material")
 
 plt.tight_layout()
 plt.show()
+
+# Calculate accuracy for each method
+accuracy_original = calculate_accuracy(true_labels_encoded_full, new_labels_original)
+accuracy_decoded = calculate_accuracy(true_labels_encoded_auto, new_labels_decoded)
+accuracy_encoded = calculate_accuracy(true_labels_encoded_auto, new_labels_encoded)
+
+print("\nAccuracy:")
+print(f"Original Features: {accuracy_original:.2f}%")
+print(f"Decoded Data: {accuracy_decoded:.2f}%")
+print(f"Encoded Data: {accuracy_encoded:.2f}%")
 
 # -------------------- t-SNE Visualization of Clustering Results --------------------
 perplexity = 30
